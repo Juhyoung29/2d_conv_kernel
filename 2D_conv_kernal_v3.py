@@ -98,7 +98,7 @@ def test_convolution():
     s = allo.customize(conv2D_lb)
     LB = s.reuse_at(s.A, "y")
     print(s.module)
-    mod = s.build()
+    test_mod = s.build()
 
     A_sys = np.random.rand(IR, IC).astype(np.float32)
     B_sys = np.random.rand(FR, FC).astype(np.float32)
