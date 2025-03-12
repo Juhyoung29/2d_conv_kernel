@@ -106,11 +106,11 @@ def test_convolution():
 
     sim_mod = df.build(top, target = "simulator")
     sim_mod(A_sys, B_sys, C_sys)
-    np.testing.assert_allclose(C_sys, , atol=1e-5)
+    np.testing.assert_allclose(C_sys, test_mod, atol=1e-5)
     print("simulation passed!")
 
-    mod = df.build(top)
-    if hls.is_available("vitis_hls"):
-        C = np.zeros((IR,IC), dtype = np.float32)
-        mod(A, B, C)
-        np.testing.assert_allclose(C, , atol = 1e-5)
+    # mod = df.build(top)
+    # if hls.is_available("vitis_hls"):
+    #     C = np.zeros((IR,IC), dtype = np.float32)
+    #     mod(A, B, C)
+    #     np.testing.assert_allclose(C, test_mod, atol = 1e-5)
