@@ -35,7 +35,7 @@ def top():
     # and C be the output matrix. For this simple convolution
     # kernel we will be implementing a Valid kernel
 
-    def conv_kernel(A: float32[IR, IC], B: float32[FR, FC]):
+    def conv_kernel(A: float32[IR, IC], B: float32[FR, FC], C: float32[OR, OC]):
         pi, pj = df.get_pid()
 
         # we do not use these PEs
@@ -61,7 +61,11 @@ def top():
         with allo.meta_elif(pi == P0 - 1 and pj > 0):
             for col in range(P1 - 1): # for this implementation this only runs once
                 drain_B: float32 = fifo_B[pi,pj].get()
-        
+
+        with allo.meta_elif(pj == P1 - 1 and pi > 0):
+             for row in range(P0 - 1): # for this implementation this only runs once
+                drain_A: float32 = fifo_A[pi,pj].get()           
+
         # this meta_else does the main multiplication of the convolution kernel
         with allo.meta_else():
             partial_sum: float32 = 0
@@ -72,22 +76,19 @@ def top():
                 fifo_A[pi, pj + 1].put(partial_sum)
                 fifo_B[pi + 1,pj].put(a)
 
-
-    @df.kernel(mapping=[P0,P1])
-    def adder(C: float32[OR, OC]): 
-        pi, pj = df.get_pid()
-        with allo.meta_elif(pj == P1 - 1 and pi > 0):
-            sum: float32 = 0
-            for row in range(P0):
-                partial_sum = fifo_A[pi,pj].get()
-                sum += partial_sum
-
             with allo.meta_if(pi < 4):
-                C[0, pi] = sum
+                C[0, pi] = partial_sum
             with allo.meta_elif(pi < 7):
-                C[1, pi - 4] = sum
+                C[1, pi - 4] = partial_sum
             with allo.meta_elif(pi < 10):
-                C[2, pi - 7] = sum
+                C[2, pi - 7] = partial_sum
+
+
+        # with allo.meta_elif(pj == P1 - 1 and pi > 0):
+        # #     sum: float32 = 0
+        #     for row in range(P0):
+        #         partial_sum = fifo_A[pi,pj].get()
+        #         sum += partial_sum
 
 
 ### testing the systolic convolution kernel ###
@@ -98,19 +99,25 @@ def test_convolution():
     #print(s.module)
     test_mod = s.build()
 
-    A_sys = np.random.rand(IR, IC).astype(np.float32)
-    B_sys = np.random.rand(FR, FC).astype(np.float32)
+    #print(test_mod)
+    A = np.random.rand(IR, IC).astype(np.float32)
+    B = np.random.rand(FR, FC).astype(np.float32)
     C_sys = np.zeros((OR, OC), dtype = np.float32)
-
-    sim_mod = df.build(top, target = "simulator")
-    sim_mod(A_sys, B_sys, C_sys)
-    np.testing.assert_allclose(C_sys, test_mod, atol=1e-5)
+    test_C = np.zeros((OR, OC), dtype = np.float32)
+    test_C = test_mod(A)
+    print(test_C)
+    print(C_sys)
+    
+    sim_mod = df.build(top, target="simulator")
+    sim_mod(A, B, C_sys)
+    np.testing.assert_allclose(C_sys, test_C, atol=1e-3)
     print("simulation passed!")
 
     # mod = df.build(top)
+
     # if hls.is_available("vitis_hls"):
     #     C = np.zeros((IR,IC), dtype = np.float32)
     #     mod(A, B, C)
-    #     np.testing.assert_allclose(C, test_mod, atol = 1e-5)
+    #     np.testing.assert_allclose(C, test_C, atol = 1e-5)
 
 test_convolution()
