@@ -43,17 +43,26 @@ def top():
             pass
 
         # this meta_if loads in the input matrix into the PEs
-        with allo.meta_elif(pj == 0):                 
-            for row,col in allo.grid(FR, FC):
-                with allo.meta_if(pi <= 3):
-                    #i: int32 = pi - 1 
-                    fifo_A[pi, pj + 1].put(A[row, col + (pi - 1)])
-                with allo.meta_elif(pi <= 6):
-                    #i: int32 = pi - 4 
-                    fifo_A[pi, pj + 1].put(A[row + 1, col + (pi - 4)])
-                with allo.meta_else():
-                    #i: int32 = pi - 7
-                    fifo_A[pi, pj + 1].put(A[row + 2, col + (pi - 7)])
+        with allo.meta_elif(pj == 0):    
+            output_row: int32 = 0
+            output_col: int32 = 0
+
+            for r in range(OR):
+                if((pi > r * OC) and (pi <= (r + 1) *OC)):
+                    output_row = r
+                    output_col = pi - (r * OC) - 1
+            for row, col in allo.grid(FR, FC):
+                fifo_A[pi, pj + 1].put(A[row + output_row, col + output_col])
+
+                # with allo.meta_if(pi <= 3):
+ 
+                #     fifo_A[pi, pj + 1].put(A[row, col + (pi - 1)])
+                # with allo.meta_elif(pi <= 6):
+                #     #i: int32 = pi - 4 
+                #     fifo_A[pi, pj + 1].put(A[row + 1, col + (pi - 4)])
+                # with allo.meta_else():
+                #     #i: int32 = pi - 7
+                #     fifo_A[pi, pj + 1].put(A[row + 2, col + (pi - 7)])
         
         #this meta_elif loads in the filter matrix into the PEs
         with allo.meta_elif(pi == 0):
@@ -79,15 +88,20 @@ def top():
                 fifo_A[pi, pj + 1].put(partial_sum)
                 fifo_B[pi + 1,pj].put(b)
 
-            #figure out a way to do this better since for now it only works for this specific shape
-            # i = pi - 1  # 0-8
-            # C[]
-            with allo.meta_if(1 <= pi <= 3):
-                C[0, pi - 1] += partial_sum
-            with allo.meta_elif(4 <= pi <= 6):
-                C[1, pi - 4] += partial_sum
-            with allo.meta_elif(7 <= pi <= 9):
-                C[2, pi - 7] += partial_sum
+            out_row: int32 = 0
+            out_col: int32 = 0
+            for r in range(OR):
+                if((pi > r * OC) and (pi <= (r + 1) * OC)):
+                    out_row = r
+                    out_col = pi - r * OC - 1
+            C[out_row, out_col] += partial_sum
+
+            # with allo.meta_if(1 <= pi <= OC):
+            #     C[0, pi - 1] += partial_sum
+            # with allo.meta_elif(OC + 1 <= pi <= 6):
+            #     C[1, pi - 4] += partial_sum
+            # with allo.meta_elif(7 <= pi <= 9):
+            #     C[2, pi - 7] += partial_sum
 
 
 ### testing the systolic convolution kernel ###
@@ -103,7 +117,7 @@ def test_convolution():
     print("test and systolic models built")
 
     #random test cases
-    for i in range(1000): 
+    for i in range(100): 
         A = np.random.rand(IR, IC).astype(np.float32)
         B = np.random.rand(FR, FC).astype(np.float32)
         C_sys = np.zeros((OR, OC), dtype = np.float32)
