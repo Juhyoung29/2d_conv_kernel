@@ -18,7 +18,7 @@ def conv2D_lb(A: float32[IR, IC], B: float32[FR, FC]) -> float32[OR, OC]:
     for y, x in allo.grid(OR, OC): # these are the output dimensions
         v: float32 = 0
         for r, c in allo.reduction(FR, FC): #this is the filter dimensions
-            v += A[y + r, x + c] * B[r, c]
+            v += A[y + r, x + c] * B[FR - r - 1, FC - c - 1]
         C[y, x] = v
     return C
 
@@ -75,12 +75,12 @@ def top():
         # this meta_else does the main multiplication of the convolution kernel
         with allo.meta_else():
             partial_sum: float32 = 0
-            for k in range(OR*OC):
+            for k in range(FR*FC):
                 a: float32 = fifo_A[pi,pj].get()
                 b: float32 = fifo_B[pi,pj].get()
                 partial_sum += a*b 
                 fifo_A[pi, pj + 1].put(partial_sum)
-                fifo_B[pi + 1,pj].put(a)
+                fifo_B[pi + 1,pj].put(b)
 
             #figure out a way to do this better since for now it only works for this specific shape
             # i = pi - 1  # 0-8
@@ -107,8 +107,8 @@ def test_convolution():
     C_sys = np.zeros((OR, OC), dtype = np.float32)
     test_C = np.zeros((OR, OC), dtype = np.float32)
     test_C = test_mod(A, B)
-    print(test_C)
-    print(C_sys)
+    print(A)
+    print(B)
     
     sim_mod = df.build(top, target="simulator")
     print("built")
