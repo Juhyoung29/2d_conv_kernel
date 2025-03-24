@@ -96,26 +96,27 @@ def top():
 ### testing the systolic convolution kernel ###
 
 def test_convolution():
+    #build ground truth kernel
     s = allo.customize(conv2D_lb)
     LB = s.reuse_at(s.A, "y")
-    #print(s.module)
     test_mod = s.build()
 
-    #print(test_mod)
-    A = np.random.rand(IR, IC).astype(np.float32)
-    B = np.random.rand(FR, FC).astype(np.float32)
-    C_sys = np.zeros((OR, OC), dtype = np.float32)
-    test_C = np.zeros((OR, OC), dtype = np.float32)
-    test_C = test_mod(A, B)
-    print(A)
-    print(B)
-    
+    #build systolic conv kernel
     sim_mod = df.build(top, target="simulator")
-    print("built")
-    sim_mod(A, B, C_sys)
-    print("sim mod created")
+    print("test and systolic models built")
 
-    np.testing.assert_allclose(C_sys, test_C, atol=1e-3)
+    #random test cases
+    for i in range(1000): 
+        A = np.random.rand(IR, IC).astype(np.float32)
+        B = np.random.rand(FR, FC).astype(np.float32)
+        C_sys = np.zeros((OR, OC), dtype = np.float32)
+        test_C = np.zeros((OR, OC), dtype = np.float32)
+
+        test_C = test_mod(A, B)
+        sim_mod(A, B, C_sys)
+
+        np.testing.assert_allclose(C_sys, test_C, atol=1e-3)
+  
     print("simulation passed!")
 
     # mod = df.build(top)
